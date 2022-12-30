@@ -1,6 +1,20 @@
 import flatpickr from 'flatpickr';
 import 'flatpickr/dist/flatpickr.min.css';
 import Notiflix from 'notiflix';
+require('flatpickr/dist/themes/dark.css');
+
+const calendar = document.querySelector('#datetime-picker');
+const btnStart = document.querySelector('button[data-start]');
+const seconds = document.querySelector('span[data-seconds]');
+const minutes = document.querySelector('span[data-minutes]');
+const hours = document.querySelector('span[data-hours]');
+const days = document.querySelector('span[data-days]');
+let timerId = null;
+let selectedDate = null;
+
+btnStart.addEventListener('click', onStartTimer);
+
+btnStart.disabled = true;
 
 const options = {
   enableTime: true,
@@ -8,73 +22,58 @@ const options = {
   defaultDate: new Date(),
   minuteIncrement: 1,
   onClose(selectedDates) {
-    const selectedDateUnix = selectedDates[0].getTime();
-    let id = null;
-
-    if (Date.now() > selectedDateUnix) {
+    console.log(selectedDates[0]);
+    selectedDate = selectedDates[0].getTime();
+    if (selectedDate < new Date()) {
       Notiflix.Notify.failure('Please choose a date in the future');
-
-      buttonStartTimer.disabled = true;
-      return;
+      btnStart.disabled = true;
     } else {
-      buttonStartTimer.disabled = false;
+      btnStart.disabled = false;
     }
-   },
+  },
 };
 
-const inputDataEl = document.querySelector('#datetime-picker');
-flatpickr(inputDataEl, options);
-const buttonStartTimer = document.querySelector('button[data-start]');
-buttonStartTimer.addEventListener('click', () => {
-  const timer = {
-    timerDeadline: new Date(inputDataEl.value),
-    intervalId: null,
-    rootSelector: document.querySelector('.timer'),
+flatpickr(calendar, options);
 
-    start() {
-      this.intervalId = setInterval(() => {
-        const ms = this.timerDeadline - Date.now();
+function addLeadingZero(value) {
+  return String(value).padStart(2, '0');
+}
 
-        if (ms <= 0) {
-          this.stop();
+function onStartTimer() {
+  btnStart.disabled = true;
+  timerId = setInterval(() => {
+    calendar.setAttribute('disabled', 'disabled');
+    const deadlineDate = selectedDate - new Date();
+    const convertDate = convertMs(deadlineDate);
+    showDate(convertDate);
+    timeIsOut(deadlineDate);
+  }, 1000);
+}
 
-          return;
-        }
+function showDate(time) {
+  days.textContent = addLeadingZero(time.days);
+  hours.textContent = addLeadingZero(time.hours);
+  minutes.textContent = addLeadingZero(time.minutes);
+  seconds.textContent = addLeadingZero(time.seconds);
+}
 
-        const { days, hours, minutes, seconds } = this.convertMs(ms);
+function timeIsOut(deadlineDate) {
+  if (deadlineDate < 1000) {
+    clearInterval(timerId);
+    Notiflix.Notify.success('Time is out');
+  }
+}
 
-        this.rootSelector.querySelector('.js-timer__days').textContent =
-          this.addLeadingZero(days);
-        this.rootSelector.querySelector('.js-timer__hours').textContent =
-          this.addLeadingZero(hours);
-        this.rootSelector.querySelector('.js-timer__minutes').textContent =
-          this.addLeadingZero(minutes);
-        this.rootSelector.querySelector('.js-timer__seconds').textContent =
-          this.addLeadingZero(seconds);
-      }, 1000);
-    },
+function convertMs(ms) {
+  const second = 1000;
+  const minute = second * 60;
+  const hour = minute * 60;
+  const day = hour * 24;
 
-    stop() {
-      clearInterval(this.intervalId);
-    },
+  const days = Math.floor(ms / day);
+  const hours = Math.floor((ms % day) / hour);
+  const minutes = Math.floor(((ms % day) % hour) / minute);
+  const seconds = Math.floor((((ms % day) % hour) % minute) / second);
 
-    convertMs(ms) {
-      const second = 1000;
-      const minute = second * 60;
-      const hour = minute * 60;
-      const day = hour * 24;
-
-      const days = Math.floor(ms / day);
-      const hours = Math.floor((ms % day) / hour);
-      const minutes = Math.floor(((ms % day) % hour) / minute);
-      const seconds = Math.floor((((ms % day) % hour) % minute) / second);
-
-      return { days, hours, minutes, seconds };
-    },
-
-    addLeadingZero(value) {
-      return String(value).padStart(2, 0);
-    },
-  };
-  timer.start();
-});
+  return { days, hours, minutes, seconds };
+}
